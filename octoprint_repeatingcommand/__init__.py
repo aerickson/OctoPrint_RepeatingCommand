@@ -27,10 +27,13 @@ class RepeatingCommandPlugin(
 
     def run_command(self, cmd):
         parsed_cmd = shlex.split(cmd)
-        proc = subprocess.Popen(
-            parsed_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        out, _err = proc.communicate()
+        try:
+            proc = subprocess.Popen(
+                parsed_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
+            out, _err = proc.communicate()
+        except OSError, e:
+            return (1, e)
         return (proc.returncode, out.rstrip())
 
     # ~~ SettingsPlugin
