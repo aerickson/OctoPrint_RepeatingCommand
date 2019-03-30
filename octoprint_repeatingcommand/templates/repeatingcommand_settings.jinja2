@@ -1,0 +1,28 @@
+<h3>{{ _('RepeatingCommand Configuration') }}</h3>
+
+<form class="form-horizontal">
+	<div class="control-group">
+		<div class="controls">
+			<label class="checkbox">
+				<input type="checkbox" data-bind="checked: settings.plugins.repeatingcommand.enabled" /> {{ _('Enabled') }}
+			</label>
+		</div>
+	</div>
+
+	<h4>{{ _('Settings') }}</h4>
+
+	<div class="control-group" title="{{ _('command to run') }}">
+		<label class="control-label">{{ _('command to run') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.command">
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('interval') }}">
+		<label class="control-label">{{ _('interval (seconds)') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.interval">
+		</div>
+	</div>
+
+</form>
