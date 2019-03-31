@@ -12,5 +12,4 @@ install:
 script: 
     - test/jinja_syntax_check.py
     - test/py_syntax_check.sh
-    - test/python_unit_tests.sh
 
