@@ -12,9 +12,6 @@ import time
 import octoprint.plugin
 import octoprint.util
 
-# from octoprint.timelapse import Timelapse as timelapse
-# from octoprint.settings import settings
-
 
 class RepeatingCommandPlugin(
     octoprint.plugin.EventHandlerPlugin,
@@ -38,7 +35,7 @@ class RepeatingCommandPlugin(
 
     # ~~ SettingsPlugin
     def get_settings_defaults(self):
-        return dict(enabled=False, command="echo 'Hello friend!'", interval=90)
+        return dict(enabled=False, command="echo 'Hello friend!'", verbose=False, interval=90)
 
     def get_settings_restricted_paths(self):
         return dict(admin=[["enabled"], ["command"], ["interval"]], user=[], never=[])
@@ -52,32 +49,28 @@ class RepeatingCommandPlugin(
 
     def runTimerCommand(self):
         the_cmd = self._settings.get(["command"])
-        # self._logger.info("command is '%s'" % the_cmd)
         rc, output = self.run_command(the_cmd)
-        self._logger.info("result code is %s. output: '%s'" % (rc, output))
+        if self._settings.get(["verbose"]):
+            self._logger.info("result code is %s. output: '%s'" % (rc, output))
 
     def startTimer(self):
-        # self._logger.info("startTimer entry")
         interval = self._settings.get_float(["interval"])
         the_cmd = self._settings.get(["command"])
         self._logger.info(
             "starting timer to run command '%s' every %s seconds" % (the_cmd, interval)
-        )
+        )         
         self.timer = octoprint.util.RepeatedTimer(
             interval, self.runTimerCommand, run_first=True
         )
         self.timer.start()
 
     def stopTimer(self):
-        # self._logger.info("stopTimer entry")
         self._logger.info("stopping timer")
         if self.timer:
             self.timer.cancel()
 
     # ~~ EventPlugin
     def on_event(self, event, payload):
-        # self._logger.debug("TESTING: event is %s: %s" % (event, payload))
-
         # TODO: do something on paused (event == 'PrintPaused')? have an option?
         if event == "PrintStarted":
             if self._settings.get(["enabled"]):
