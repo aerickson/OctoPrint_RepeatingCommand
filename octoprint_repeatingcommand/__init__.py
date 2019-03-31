@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from __future__ import absolute_import
+
 import datetime
 import getpass
 import os
@@ -29,13 +29,15 @@ class RepeatingCommandPlugin(
                 parsed_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
             )
             out, _err = proc.communicate()
-        except OSError, e:
+        except OSError as e:
             return (1, e)
         return (proc.returncode, out.rstrip())
 
     # ~~ SettingsPlugin
     def get_settings_defaults(self):
-        return dict(enabled=False, command="echo 'Hello friend!'", verbose=False, interval=90)
+        return dict(
+            enabled=False, command="echo 'Hello friend!'", verbose=False, interval=90
+        )
 
     def get_settings_restricted_paths(self):
         return dict(admin=[["enabled"], ["command"], ["interval"]], user=[], never=[])
@@ -58,7 +60,7 @@ class RepeatingCommandPlugin(
         the_cmd = self._settings.get(["command"])
         self._logger.info(
             "starting timer to run command '%s' every %s seconds" % (the_cmd, interval)
-        )         
+        )
         self.timer = octoprint.util.RepeatedTimer(
             interval, self.runTimerCommand, run_first=True
         )
