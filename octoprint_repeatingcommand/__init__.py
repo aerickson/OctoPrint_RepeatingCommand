@@ -40,7 +40,9 @@ class RepeatingCommandPlugin(
         )
 
     def get_settings_restricted_paths(self):
-        return dict(admin=[["enabled"], ["command"], ["interval"]], user=[], never=[])
+        return dict(
+            admin=[["enabled"], ["command"], ["interval"], "verbose"], user=[], never=[]
+        )
 
     def get_settings_version(self):
         return 1
@@ -67,8 +69,8 @@ class RepeatingCommandPlugin(
         self.timer.start()
 
     def stopTimer(self):
-        self._logger.info("stopping timer")
         if self.timer:
+            self._logger.info("stopping timer")
             self.timer.cancel()
 
     # ~~ EventPlugin
