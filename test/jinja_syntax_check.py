@@ -6,14 +6,14 @@ import sys
 import os
 from jinja2 import Environment
 
-mytemplates = 'octoprint_repeatingcommand/templates'
+mytemplates = "octoprint_repeatingcommand/templates"
 
 env = Environment()
 templates = []
 for root, dirs, files in os.walk(mytemplates):
-        for f in files:
-                if f.endswith('.jinja2'):
-                        templates.append(os.path.join(root,f))
+    for f in files:
+        if f.endswith(".jinja2"):
+            templates.append(os.path.join(root, f))
 
 print("Inspecting the following jinja2 files: ")
 for template in templates:

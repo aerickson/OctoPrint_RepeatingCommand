@@ -82,7 +82,7 @@ class RepeatingCommandPlugin(
         elif event == "PrintDone" or event == "PrintFailed":
             self.stopTimer()
 
-    ##~~ Softwareupdate hook
+    # ~~ Softwareupdate hook
     def get_update_information(self):
         return dict(
             repeatingcommand=dict(
