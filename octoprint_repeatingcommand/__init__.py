@@ -108,7 +108,7 @@ class RepeatingCommandPlugin(
 
 
 __plugin_name__ = "RepeatingCommand"
-__python_compat__ = ">=2.7,<4"
+__plugin_pythoncompat__ = ">=2.7,<4"
 
 
 def __plugin_load__():
