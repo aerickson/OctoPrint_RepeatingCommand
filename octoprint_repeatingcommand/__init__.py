@@ -74,7 +74,7 @@ class RepeatingCommandPlugin(
 
     # ~~ TemplatePlugin
     def get_template_configs(self):
-        return [dict(type="settings", name="Repeating Command", custom_bindings=False)]
+        return [dict(type="settings", name="Repeating Command", custom_bindings=True)]
 
     def get_assets(self):
         return dict(js=["js/repeatingcommand.js"])
