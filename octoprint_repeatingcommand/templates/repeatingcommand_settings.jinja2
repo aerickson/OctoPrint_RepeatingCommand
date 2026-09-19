@@ -28,4 +28,38 @@
 		</div>
 	</div>
 
+	<h4>{{ _('Alternate Profile Settings') }}</h4>
+	<p>{{ _('These settings are used when the current M117 message contains one of the configured terms, or when the printer enters one of the configured states.') }}</p>
+
+	<div class="control-group" title="{{ _('cooling command') }}">
+		<label class="control-label">{{ _('alternate command') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_command">
+			<span class="help-block">{{ _('Leave blank to reuse the normal command.') }}</span>
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('cooling interval') }}">
+		<label class="control-label">{{ _('alternate interval (seconds)') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_interval">
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('M117 alternate text') }}">
+		<label class="control-label">{{ _('M117 alternate text') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_message">
+			<span class="help-block">{{ _('Comma-separated, case-insensitive substrings, for example: cooling, cool-down. Leave blank to disable M117 matching.') }}</span>
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('cooling printer states') }}">
+		<label class="control-label">{{ _('alternate printer states') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_states">
+			<span class="help-block">{{ _('Comma-separated state IDs, for example: FINISHING. Leave blank to disable state matching.') }}</span>
+		</div>
+	</div>
+
 </form>
