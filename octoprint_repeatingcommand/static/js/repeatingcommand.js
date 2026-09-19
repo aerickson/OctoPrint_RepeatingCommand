@@ -3,10 +3,10 @@
 function RepeatingCommandViewModel(parameters) {
     var self = this;
     self.settingsViewModel = parameters[0];
-    self.settings = self.settingsViewModel.settings || self.settingsViewModel;
-    self.pluginSettings = self.settings.plugins.repeatingcommand;
+    self.settings = null;
+    self.pluginSettings = null;
     self.maxRules = 6;
-    var initialRules = ko.unwrap(self.pluginSettings.rules) || [];
+    var initialRules = [];
 
     function rule(data) {
         data = data || {};
@@ -57,36 +57,56 @@ function RepeatingCommandViewModel(parameters) {
         });
     }
 
-    self.pluginSettings.rules = ko.observableArray([]);
-    self.pluginSettings.addRule = function() {
-        if (self.pluginSettings.rules().length < self.maxRules) {
-            self.pluginSettings.rules.push(rule());
+    function initialize() {
+        self.settings = self.settingsViewModel.settings || self.settingsViewModel;
+        if (!self.settings.plugins || !self.settings.plugins.repeatingcommand) {
+            return false;
         }
-    };
-    self.pluginSettings.removeRule = function(current) {
-        self.pluginSettings.rules.remove(current);
-    };
-    self.pluginSettings.moveRuleUp = function(current) {
-        var index = self.pluginSettings.rules.indexOf(current);
-        if (index > 0) {
-            self.pluginSettings.rules.splice(index, 1);
-            self.pluginSettings.rules.splice(index - 1, 0, current);
-        }
-    };
-    self.pluginSettings.moveRuleDown = function(current) {
-        var index = self.pluginSettings.rules.indexOf(current);
-        if (index >= 0 && index < self.pluginSettings.rules().length - 1) {
-            self.pluginSettings.rules.splice(index, 1);
-            self.pluginSettings.rules.splice(index + 1, 0, current);
+
+        self.pluginSettings = self.settings.plugins.repeatingcommand;
+        initialRules = ko.unwrap(self.pluginSettings.rules) || [];
+        self.pluginSettings.rules = ko.observableArray([]);
+        self.pluginSettings.addRule = function() {
+            if (self.pluginSettings.rules().length < self.maxRules) {
+                self.pluginSettings.rules.push(rule());
+            }
+        };
+        self.pluginSettings.removeRule = function(current) {
+            self.pluginSettings.rules.remove(current);
+        };
+        self.pluginSettings.moveRuleUp = function(current) {
+            var index = self.pluginSettings.rules.indexOf(current);
+            if (index > 0) {
+                self.pluginSettings.rules.splice(index, 1);
+                self.pluginSettings.rules.splice(index - 1, 0, current);
+            }
+        };
+        self.pluginSettings.moveRuleDown = function(current) {
+            var index = self.pluginSettings.rules.indexOf(current);
+            if (index >= 0 && index < self.pluginSettings.rules().length - 1) {
+                self.pluginSettings.rules.splice(index, 1);
+                self.pluginSettings.rules.splice(index + 1, 0, current);
+            }
+        };
+        return true;
+    }
+
+    self.onBeforeBinding = function() {
+        if (initialize()) {
+            fromSettings();
         }
     };
 
     self.onSettingsShown = function() {
-        fromSettings();
+        if (self.pluginSettings || initialize()) {
+            fromSettings();
+        }
     };
 
     self.onSettingsBeforeSave = function() {
-        self.pluginSettings.rules(plainRules());
+        if (self.pluginSettings) {
+            self.pluginSettings.rules(plainRules());
+        }
     };
 }
 

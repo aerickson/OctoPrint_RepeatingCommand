@@ -49,11 +49,12 @@ const pluginSettings = {
     cooling_states: observable(""),
     rules: []
 };
-const viewModel = new ViewModel([{
-    settings: { plugins: { repeatingcommand: pluginSettings } }
-}]);
+const settingsViewModel = { settings: {} };
+const viewModel = new ViewModel([settingsViewModel]);
 
-viewModel.onSettingsShown();
+settingsViewModel.settings.plugins = { repeatingcommand: pluginSettings };
+
+viewModel.onBeforeBinding();
 assert.strictEqual(viewModel.pluginSettings.rules().length, 1);
 viewModel.pluginSettings.addRule();
 assert.strictEqual(viewModel.pluginSettings.rules().length, 2);
