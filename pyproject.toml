@@ -24,4 +24,4 @@ include-package-data = true
 include = ["octoprint_repeatingcommand", "octoprint_repeatingcommand.*"]
 
 [tool.setuptools.package-data]
-octoprint_repeatingcommand = ["templates/*.jinja2"]
+octoprint_repeatingcommand = ["templates/*.jinja2", "static/js/*.js"]

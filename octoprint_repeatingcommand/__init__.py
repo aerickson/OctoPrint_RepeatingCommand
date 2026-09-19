@@ -23,10 +23,9 @@ class RepeatingCommandPlugin(
     def __init__(self):
         self.timer = None
         self.print_active = False
-        self.cooling_message = ""
+        self.current_status = ""
         self.printer_state = ""
-        self.cooling = False
-        self.timer_profile = None
+        self.timer_rule = None
 
     def run_command(self, cmd):
         parsed_cmd = shlex.split(cmd)
@@ -49,6 +48,7 @@ class RepeatingCommandPlugin(
             cooling_interval=30,
             cooling_message="cooling",
             cooling_states="",
+            rules=[],
             verbose=False,
         )
 
@@ -62,6 +62,7 @@ class RepeatingCommandPlugin(
                 ["cooling_interval"],
                 ["cooling_message"],
                 ["cooling_states"],
+                ["rules"],
                 "verbose",
             ],
             user=[],
@@ -75,66 +76,105 @@ class RepeatingCommandPlugin(
     def get_template_configs(self):
         return [dict(type="settings", name="Repeating Command", custom_bindings=False)]
 
+    def get_assets(self):
+        return dict(js=["js/repeatingcommand.js"])
+
     def runTimerCommand(self):
-        the_cmd = self._command_for_profile(self.timer_profile)
+        the_cmd = self.timer_rule.get("command", "")
         rc, output = self.run_command(the_cmd)
         if self._settings.get(["verbose"]):
             self._logger.info("result code is %s. output: '%s'" % (rc, output))
 
-    def _command_for_profile(self, profile):
-        if profile == "cooling":
-            cooling_command = self._settings.get(["cooling_command"])
-            return cooling_command or self._settings.get(["command"])
-        return self._settings.get(["command"])
-
-    def _cooling_condition(self):
-        messages = [
-            message.strip().lower()
-            for message in (self._settings.get(["cooling_message"]) or "").split(",")
-            if message.strip()
+    def _legacy_rules(self):
+        rules = [
+            dict(
+                command=self._settings.get(["command"]),
+                interval=self._settings.get(["interval"]),
+                filtering_enabled=False,
+                status_contains="",
+                printer_states="",
+            )
         ]
-        message_match = any(
-            message in self.cooling_message.lower() for message in messages
-        )
+        cooling_command = self._settings.get(["cooling_command"])
+        cooling_message = self._settings.get(["cooling_message"])
+        cooling_states = self._settings.get(["cooling_states"])
+        if cooling_command or cooling_message or cooling_states:
+            rules.append(
+                dict(
+                    command=cooling_command or self._settings.get(["command"]),
+                    interval=self._settings.get(["cooling_interval"]),
+                    filtering_enabled=True,
+                    status_contains=cooling_message or "",
+                    printer_states=cooling_states or "",
+                )
+            )
+        return rules
+
+    def _rules(self):
+        rules = self._settings.get(["rules"])
+        return rules if rules else self._legacy_rules()
+
+    def _rule_matches(self, rule):
+        if not rule.get("filtering_enabled", False):
+            return True
+
+        statuses = [
+            value.strip().lower()
+            for value in (rule.get("status_contains") or "").split(",")
+            if value.strip()
+        ]
         states = [
-            state.strip().lower()
-            for state in (self._settings.get(["cooling_states"]) or "").split(",")
-            if state.strip()
+            value.strip().lower()
+            for value in (rule.get("printer_states") or "").split(",")
+            if value.strip()
         ]
+        status_match = any(value in self.current_status.lower() for value in statuses)
         state_match = self.printer_state.lower() in states if self.printer_state else False
-        return bool(message_match or state_match)
+        return bool(status_match or state_match)
 
-    def _desired_profile(self):
-        if self.cooling:
-            return "cooling"
-        if self.print_active:
-            return "normal"
+    def _matching_rule(self, filtered_only=False):
+        rules = self._rules()
+        filtered = [rule for rule in rules if rule.get("filtering_enabled", False)]
+        for rule in filtered:
+            if self._rule_matches(rule):
+                return rule
+        if not filtered_only:
+            return next(
+                (rule for rule in rules if not rule.get("filtering_enabled", False)),
+                None,
+            )
         return None
+
+    def _desired_rule(self):
+        if self.print_active:
+            return self._matching_rule()
+        return self._matching_rule(filtered_only=True)
 
     def _refresh_timer(self):
         if not self._settings.get(["enabled"]):
             self.stopTimer()
             return
 
-        profile = self._desired_profile()
-        if profile is None:
+        rule = self._desired_rule()
+        if rule is None:
             self.stopTimer()
             return
 
-        interval = self._settings.get_float(
-            ["cooling_interval"] if profile == "cooling" else ["interval"]
-        )
+        try:
+            interval = float(rule.get("interval", 0))
+        except (TypeError, ValueError):
+            interval = 0
         if interval <= 0:
             self._logger.warning("not starting timer: interval must be greater than zero")
             self.stopTimer()
             return
 
-        if self.timer and self.timer_profile == profile:
+        if self.timer and self.timer_rule == rule:
             return
 
         self.stopTimer()
-        self.timer_profile = profile
-        the_cmd = self._command_for_profile(profile)
+        self.timer_rule = rule
+        the_cmd = rule.get("command", "")
         self._logger.info(
             "starting timer to run command '%s' every %s seconds" % (the_cmd, interval)
         )
@@ -148,7 +188,7 @@ class RepeatingCommandPlugin(
             self._logger.info("stopping timer")
             self.timer.cancel()
             self.timer = None
-        self.timer_profile = None
+        self.timer_rule = None
 
     # ~~ EventPlugin
     def on_event(self, event, payload):
@@ -161,13 +201,11 @@ class RepeatingCommandPlugin(
             self._refresh_timer()
         elif event == "PrintFailed":
             self.print_active = False
-            self.cooling = False
             self.stopTimer()
         elif event == "PrinterStateChanged":
             self.printer_state = (payload or {}).get("state_id", "") or (payload or {}).get(
                 "state_string", ""
             )
-            self.cooling = self._cooling_condition()
             self._refresh_timer()
 
     def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, subcode, tags):
@@ -177,8 +215,7 @@ class RepeatingCommandPlugin(
 
         match = re.match(r"^M117(?:\s+(.+))?$", cmd.strip(), re.IGNORECASE)
         if match:
-            self.cooling_message = match.group(1) or ""
-            self.cooling = self._cooling_condition()
+            self.current_status = match.group(1) or ""
             self._refresh_timer()
 
     # ~~ Softwareupdate hook

@@ -34,6 +34,14 @@ The cooling profile can continue running after `PrintDone` while the cooling
 condition remains active. Clear the `M117` message or leave the configured cooling
 state to return to the normal profile or stop the timer.
 
+### Rules
+
+The settings page supports up to six rules. Each rule has its own command and
+interval. A rule applies to all situations by default; enable filtering to make
+it apply only when its M117 status text or printer-state filters match. Filtered
+rules take precedence over all-situations rules, and rules are evaluated from top
+to bottom. This makes the first unfiltered rule a useful fallback.
+
 ## Acknowledgements
 
 Loosely based on [OctoPrint_FreeMobile-Notifier](https://github.com/Pinaute/OctoPrint_FreeMobile-Notifier).

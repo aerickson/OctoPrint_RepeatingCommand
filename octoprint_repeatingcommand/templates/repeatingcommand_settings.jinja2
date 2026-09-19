@@ -7,59 +7,62 @@
 				<input type="checkbox" data-bind="checked: settings.plugins.repeatingcommand.enabled" /> {{ _('Enabled') }}
 			</label>
 			<label class="checkbox">
-				<input type="checkbox" data-bind="checked: settings.plugins.repeatingcommand.verbose" /> {{ _("Verbose Log Output") }}
-			</label>			
+				<input type="checkbox" data-bind="checked: settings.plugins.repeatingcommand.verbose" /> {{ _('Verbose Log Output') }}
+			</label>
 		</div>
 	</div>
 
-	<h4>{{ _('Settings') }}</h4>
+	<p>{{ _('Rules are checked from top to bottom. Filtered rules take precedence over rules that apply to all situations.') }}</p>
 
-	<div class="control-group" title="{{ _('command to run') }}">
-		<label class="control-label">{{ _('command to run') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.command">
-		</div>
+	<div data-bind="foreach: settings.plugins.repeatingcommand.rules">
+		<fieldset class="well">
+			<legend>
+				{{ _('Rule') }} <span data-bind="text: $index() + 1"></span>
+				<button type="button" class="btn btn-mini pull-right" data-bind="click: $root.settings.plugins.repeatingcommand.moveRuleDown, enable: $index() < $root.settings.plugins.repeatingcommand.rules().length - 1">{{ _('Down') }}</button>
+				<button type="button" class="btn btn-mini pull-right" data-bind="click: $root.settings.plugins.repeatingcommand.moveRuleUp, enable: $index() > 0">{{ _('Up') }}</button>
+				<button type="button" class="btn btn-mini pull-right" data-bind="click: $root.settings.plugins.repeatingcommand.removeRule, visible: $root.settings.plugins.repeatingcommand.rules().length > 1">{{ _('Remove') }}</button>
+			</legend>
+
+			<div class="control-group">
+				<label class="control-label">{{ _('Command') }}</label>
+				<div class="controls">
+					<input type="text" class="input-block-level" data-bind="value: command">
+				</div>
+			</div>
+
+			<div class="control-group">
+				<label class="control-label">{{ _('Interval (seconds)') }}</label>
+				<div class="controls">
+					<input type="number" min="1" class="input-block-level" data-bind="value: interval">
+				</div>
+			</div>
+
+			<div class="control-group">
+				<div class="controls">
+					<label class="checkbox">
+						<input type="checkbox" data-bind="checked: filtering_enabled"> {{ _('Enable status/state filtering') }}
+					</label>
+				</div>
+			</div>
+
+			<div class="control-group" data-bind="visible: filtering_enabled">
+				<label class="control-label">{{ _('M117 status contains') }}</label>
+				<div class="controls">
+					<input type="text" class="input-block-level" data-bind="value: status_contains">
+					<span class="help-block">{{ _('Optional comma-separated, case-insensitive substrings.') }}</span>
+				</div>
+			</div>
+
+			<div class="control-group" data-bind="visible: filtering_enabled">
+				<label class="control-label">{{ _('Printer states') }}</label>
+				<div class="controls">
+					<input type="text" class="input-block-level" data-bind="value: printer_states">
+					<span class="help-block">{{ _('Optional comma-separated state IDs, such as PRINTING or PAUSED.') }}</span>
+				</div>
+			</div>
+		</fieldset>
 	</div>
 
-	<div class="control-group" title="{{ _('interval') }}">
-		<label class="control-label">{{ _('interval (seconds)') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.interval">
-		</div>
-	</div>
-
-	<h4>{{ _('Alternate Profile Settings') }}</h4>
-	<p>{{ _('These settings are used when the current M117 message contains one of the configured terms, or when the printer enters one of the configured states.') }}</p>
-
-	<div class="control-group" title="{{ _('cooling command') }}">
-		<label class="control-label">{{ _('alternate command') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_command">
-			<span class="help-block">{{ _('Leave blank to reuse the normal command.') }}</span>
-		</div>
-	</div>
-
-	<div class="control-group" title="{{ _('cooling interval') }}">
-		<label class="control-label">{{ _('alternate interval (seconds)') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_interval">
-		</div>
-	</div>
-
-	<div class="control-group" title="{{ _('M117 alternate text') }}">
-		<label class="control-label">{{ _('M117 alternate text') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_message">
-			<span class="help-block">{{ _('Comma-separated, case-insensitive substrings, for example: cooling, cool-down. Leave blank to disable M117 matching.') }}</span>
-		</div>
-	</div>
-
-	<div class="control-group" title="{{ _('cooling printer states') }}">
-		<label class="control-label">{{ _('alternate printer states') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.repeatingcommand.cooling_states">
-			<span class="help-block">{{ _('Comma-separated state IDs, for example: FINISHING. Leave blank to disable state matching.') }}</span>
-		</div>
-	</div>
-
+	<button type="button" class="btn" data-bind="click: settings.plugins.repeatingcommand.addRule, enable: settings.plugins.repeatingcommand.rules().length < 6">{{ _('Add Rule') }}</button>
+	<span class="help-inline">{{ _('Up to 6 rules.') }}</span>
 </form>
