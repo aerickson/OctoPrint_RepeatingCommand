@@ -2,7 +2,7 @@
 
 function RepeatingCommandViewModel(parameters) {
     var self = this;
-    self.settingsViewModel = parameters["settingsViewModel"];
+    self.settingsViewModel = parameters[0];
     self.pluginSettings = self.settingsViewModel.settings.plugins.repeatingcommand;
     self.maxRules = 6;
     var initialRules = ko.unwrap(self.pluginSettings.rules) || [];
