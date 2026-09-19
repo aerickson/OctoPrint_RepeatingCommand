@@ -48,6 +48,10 @@ Run the backend unit tests with:
 
     python -m pytest -q
 
+Run all automated test suites and checks with:
+
+    ./run-tests.sh
+
 With [uv](https://docs.astral.sh/uv/), create or update the project environment
 and run the backend tests with:
 
