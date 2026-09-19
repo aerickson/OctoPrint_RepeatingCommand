@@ -3,16 +3,24 @@
 set -euo pipefail
 
 if command -v uv >/dev/null 2>&1; then
-    uv run pytest -q
-    uv run python -m py_compile octoprint_repeatingcommand/__init__.py
-    uv run python test/jinja_syntax_check.py
+    python_runner=(uv run python)
+    pytest_runner=(uv run pytest)
 else
-    python -m pytest -q
-    python -m py_compile octoprint_repeatingcommand/__init__.py
-    python test/jinja_syntax_check.py
+    python_runner=(python)
+    pytest_runner=(python -m pytest)
 fi
 
+printf '\n== Backend unit tests ==\n'
+"${pytest_runner[@]}" -q
+
+printf '\n== Python syntax checks ==\n'
+"${python_runner[@]}" -m py_compile octoprint_repeatingcommand/__init__.py
+"${python_runner[@]}" test/jinja_syntax_check.py
+
+printf '\n== Frontend viewmodel tests ==\n'
 node test/repeatingcommand_viewmodel_smoke.js
+
+printf '\n== JavaScript syntax checks ==\n'
 node --check octoprint_repeatingcommand/static/js/repeatingcommand.js
 
-echo "All tests passed."
+printf '\nAll tests passed.\n'
