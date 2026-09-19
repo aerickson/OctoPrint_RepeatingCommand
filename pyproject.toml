@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OctoPrint-RepeatingCommand"
+version = "0.0.1"
+description = "Run a command at a configurable interval during prints."
+readme = "README.md"
+requires-python = ">=3.7,<4"
+authors = [
+    { name = "Andrew Erickson", email = "aerickson@gmail.com" },
+]
+license = { file = "LICENSE" }
+urls = { Homepage = "https://github.com/aerickson/OctoPrint_RepeatingCommand" }
+
+[project.entry-points."octoprint.plugin"]
+repeatingcommand = "octoprint_repeatingcommand"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["octoprint_repeatingcommand", "octoprint_repeatingcommand.*"]
+
+[tool.setuptools.package-data]
+octoprint_repeatingcommand = ["templates/*.jinja2"]

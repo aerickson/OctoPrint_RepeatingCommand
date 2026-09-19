@@ -13,6 +13,11 @@ or manually using this URL:
 
     https://github.com/aerickson/OctoPrint_RepeatingCommand/archive/master.zip
 
+For editable development installs, use the Python environment that runs
+OctoPrint:
+
+    python -m pip install -e .
+
 ## Configuration
 
 Set a command and interval and enable it.
