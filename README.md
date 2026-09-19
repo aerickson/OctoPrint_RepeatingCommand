@@ -48,9 +48,22 @@ Run the backend unit tests with:
 
     python -m pytest -q
 
+With [uv](https://docs.astral.sh/uv/), create or update the project environment
+and run the backend tests with:
+
+    uv sync
+    uv run pytest -q
+
 Run the frontend viewmodel tests with:
 
     node test/repeatingcommand_viewmodel_smoke.js
+
+For an existing OctoPrint virtual environment, install the Python test tools
+without replacing that environment:
+
+    source ~/OctoPrint/bin/activate
+    uv pip install -r requirements-test.txt
+    pytest -q
 
 Additional syntax checks are available with:
 

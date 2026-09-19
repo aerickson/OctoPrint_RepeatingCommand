@@ -17,6 +17,12 @@ urls = { Homepage = "https://github.com/aerickson/OctoPrint_RepeatingCommand" }
 [project.entry-points."octoprint.plugin"]
 repeatingcommand = "octoprint_repeatingcommand"
 
+[dependency-groups]
+dev = [
+    "pytest",
+    "jinja2",
+]
+
 [tool.setuptools]
 include-package-data = true
 
