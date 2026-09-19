@@ -42,6 +42,25 @@ it apply only when its M117 status text or printer-state filters match. Filtered
 rules take precedence over all-situations rules, and rules are evaluated from top
 to bottom. This makes the first unfiltered rule a useful fallback.
 
+## Testing
+
+Run the backend unit tests with:
+
+    python -m pytest -q
+
+Run the frontend viewmodel tests with:
+
+    node test/repeatingcommand_viewmodel_smoke.js
+
+Additional syntax checks are available with:
+
+    python -m py_compile octoprint_repeatingcommand/__init__.py
+    python test/jinja_syntax_check.py
+    node --check octoprint_repeatingcommand/static/js/repeatingcommand.js
+
+The backend tests use lightweight OctoPrint fakes and do not require a running
+OctoPrint server or a connected printer.
+
 ## Acknowledgements
 
 Loosely based on [OctoPrint_FreeMobile-Notifier](https://github.com/Pinaute/OctoPrint_FreeMobile-Notifier).
