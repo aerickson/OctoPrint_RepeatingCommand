@@ -11,7 +11,10 @@ else
 fi
 
 printf '\n== Backend unit tests ==\n'
-"${pytest_runner[@]}" -q
+"${pytest_runner[@]}" -q test/test_repeatingcommand.py
+
+printf '\n== Package and plugin metadata tests ==\n'
+"${pytest_runner[@]}" -q test/test_package.py
 
 printf '\n== Python syntax checks ==\n'
 "${python_runner[@]}" -m py_compile octoprint_repeatingcommand/__init__.py
