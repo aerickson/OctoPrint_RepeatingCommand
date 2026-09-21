@@ -69,6 +69,23 @@ without replacing that environment:
     uv pip install -r requirements-test.txt
     pytest -q
 
+### Browser integration smoke test
+
+The standalone browser smoke test launches its own disposable localhost
+OctoPrint instance and exercises the packaged plugin settings page with
+Playwright-managed Firefox. It uses `uv` to create a temporary Python 3.11+
+environment, install the latest OctoPrint, build/install the current wheel, and
+install the pinned `playwright-testing` dependency group:
+
+    test/browser_smoke.sh
+
+The driver downloads the Playwright Firefox build into its temporary runtime.
+The test runs headless by default and supports `--headed`, `--verbose`, and
+`--preserve-basedir`. The default run
+resets `.tmp/octoprint-smoke/`; use `--preserve-basedir` when investigating
+stateful behavior. On failure, logs, a screenshot, and a Playwright trace are
+left under `.tmp/octoprint-smoke-artifacts/`.
+
 Additional syntax checks are available with:
 
     python -m py_compile octoprint_repeatingcommand/__init__.py

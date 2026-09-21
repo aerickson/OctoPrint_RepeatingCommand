@@ -22,6 +22,10 @@ dev = [
     "pytest",
     "jinja2",
 ]
+playwright-testing = [
+    "octoprint; python_version >= '3.9'",
+    "playwright==1.52.0; python_version >= '3.9'",
+]
 
 [tool.setuptools]
 include-package-data = true

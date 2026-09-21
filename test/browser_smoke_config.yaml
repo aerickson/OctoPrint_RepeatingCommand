@@ -1,0 +1,16 @@
+server:
+  firstRun: false
+  commands:
+    systemShutdownCommand: /bin/true
+    systemRestartCommand: /bin/true
+    serverRestartCommand: /bin/true
+  onlineCheck:
+    enabled: false
+  pluginBlacklist:
+    enabled: false
+accessControl:
+  autologinLocal: true
+  autologinAs: smoke-admin
+plugins:
+  tracking:
+    enabled: false
