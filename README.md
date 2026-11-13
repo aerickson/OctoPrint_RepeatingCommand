@@ -42,6 +42,15 @@ it apply only when its M117 status text or printer-state filters match. Filtered
 rules take precedence over all-situations rules, and rules are evaluated from top
 to bottom. This makes the first unfiltered rule a useful fallback.
 
+Select **Run once when activated** to execute a rule once instead of repeating.
+The saved interval is preserved while this option is enabled. The highest-priority
+matching rule executes; duplicate status/state events do not run it again. It
+can execute again after its condition stops matching and then matches again.
+A temporary override by another rule does not reset it. Unfiltered rules reset
+at print end; filtered cooling rules stay active across `PrintDone`. Print failure
+resets activation history. Repeating rules still require an interval greater than
+zero; zero does not mean run once.
+
 ## Testing
 
 Run the backend unit tests with:

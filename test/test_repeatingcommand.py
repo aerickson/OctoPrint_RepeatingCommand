@@ -211,3 +211,89 @@ def test_legacy_settings_are_used_when_rules_are_empty():
     plugin.current_status = "cooling"
 
     assert plugin._matching_rule()["command"] == "legacy-cooling"
+
+
+def once_plugin(rules):
+    plugin = make_plugin(rules)
+    plugin.commands = []
+    plugin.run_command = lambda command: (plugin.commands.append(command) or 0, b"ok")
+    return plugin
+
+
+def test_run_once_duplicate_events_and_reactivation():
+    cooling = dict(rule("cool", filtering_enabled=True, status_contains="cooling"), run_once=True)
+    plugin = once_plugin([cooling])
+    for _ in range(2):
+        plugin.on_gcode_queuing(None, None, "M117 Cooling", None, "M117", None, None)
+        plugin.on_event("PrinterStateChanged", {"state_id": "OPERATIONAL"})
+    assert plugin.commands == ["cool"]
+    assert FakeTimer.instances == []
+    plugin.on_gcode_queuing(None, None, "M117", None, "M117", None, None)
+    plugin.on_gcode_queuing(None, None, "M117 Cooling", None, "M117", None, None)
+    assert plugin.commands == ["cool", "cool"]
+
+
+def test_run_once_print_lifecycle_and_cooling():
+    normal = dict(rule("normal"), run_once=True)
+    cooling = dict(rule("cool", filtering_enabled=True, status_contains="cooling"), run_once=True)
+    plugin = once_plugin([normal, cooling])
+    plugin.on_event("PrintStarted", {})
+    plugin.on_event("PrintStarted", {})
+    plugin.on_gcode_queuing(None, None, "M117 cooling", None, "M117", None, None)
+    plugin.on_event("PrintDone", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "OPERATIONAL"})
+    assert plugin.commands == ["normal", "cool"]
+    plugin.on_gcode_queuing(None, None, "M117", None, "M117", None, None)
+    plugin.on_event("PrintStarted", {})
+    assert plugin.commands == ["normal", "cool", "normal"]
+    plugin.on_event("PrintFailed", {})
+    plugin.on_event("PrintStarted", {})
+    assert plugin.commands == ["normal", "cool", "normal", "normal"]
+
+
+def test_run_once_precedence_does_not_reset_matching_rule():
+    priority = rule("repeat", 5, True, printer_states="PAUSED")
+    fallback = dict(rule("once"), run_once=True)
+    plugin = once_plugin([fallback, priority])
+    plugin.on_event("PrintStarted", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
+    timer = FakeTimer.instances[-1]
+    assert timer.started
+    plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
+    assert timer.cancelled
+    assert plugin.commands == ["once"]
+
+
+def test_run_once_filtered_precedence_and_state_reactivation():
+    selected = dict(rule("selected", filtering_enabled=True, printer_states="PAUSED"), run_once=True)
+    plugin = once_plugin([rule("fallback"), selected])
+    plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
+    plugin.on_event("PrintStarted", {})
+    assert plugin.commands == ["selected"]
+    assert FakeTimer.instances == []
+    plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
+    timer = FakeTimer.instances[-1]
+    plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
+    assert timer.cancelled
+    assert plugin.commands == ["selected", "selected"]
+
+
+def test_disable_resets_run_once_activation():
+    plugin = once_plugin([dict(rule("once", interval=0), run_once=True)])
+    plugin.on_event("PrintStarted", {})
+    plugin._settings.values["enabled"] = False
+    plugin._refresh_timer()
+    plugin._settings.values["enabled"] = True
+    plugin._refresh_timer()
+    assert plugin.commands == ["once", "once"]
+    assert FakeTimer.instances == []
+
+
+def test_reordering_rules_preserves_activation_history():
+    once = dict(rule("once"), run_once=True)
+    override = rule("override", filtering_enabled=True, printer_states="PAUSED")
+    plugin = once_plugin([once, override])
+    plugin.on_event("PrintStarted", {})
+    plugin._settings.values["rules"] = [override, once]
+    plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
+    assert plugin.commands == ["once"]

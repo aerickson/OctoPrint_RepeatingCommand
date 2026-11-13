@@ -12,7 +12,8 @@ function RepeatingCommandViewModel(parameters) {
         data = data || {};
         return {
             command: ko.observable(ko.unwrap(data.command) || ""),
-            interval: ko.observable(ko.unwrap(data.interval) || 90),
+            interval: ko.observable(ko.unwrap(data.interval) == null ? 90 : ko.unwrap(data.interval)),
+            run_once: ko.observable(!!ko.unwrap(data.run_once)),
             filtering_enabled: ko.observable(!!ko.unwrap(data.filtering_enabled)),
             status_contains: ko.observable(ko.unwrap(data.status_contains) || ""),
             printer_states: ko.observable(ko.unwrap(data.printer_states) || "")
@@ -50,6 +51,7 @@ function RepeatingCommandViewModel(parameters) {
             return {
                 command: ko.unwrap(current.command),
                 interval: ko.unwrap(current.interval),
+                run_once: ko.unwrap(current.run_once),
                 filtering_enabled: ko.unwrap(current.filtering_enabled),
                 status_contains: ko.unwrap(current.status_contains),
                 printer_states: ko.unwrap(current.printer_states)

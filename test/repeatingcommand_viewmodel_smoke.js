@@ -143,15 +143,37 @@ function testSaveSerialization() {
     assert.deepStrictEqual(JSON.parse(JSON.stringify(instance.pluginSettings.rules())), [{
         command: "updated",
         interval: 15,
+        run_once: false,
         filtering_enabled: true,
         status_contains: "cooling",
         printer_states: "FINISHING"
     }]);
 }
 
+function testExecutionMode() {
+    const saved = rule("once");
+    saved.interval = 0;
+    saved.run_once = true;
+    const instance = makeInstance(makePluginSettings({ rules: [saved] }));
+    let current = instance.pluginSettings.rules()[0];
+    assert.strictEqual(current.run_once(), true);
+    assert.strictEqual(current.interval(), 0);
+    current.interval(42);
+    current.run_once(false);
+    current.run_once(true);
+    assert.strictEqual(current.interval(), 42);
+    instance.onSettingsBeforeSave();
+    assert.strictEqual(instance.pluginSettings.rules()[0].run_once, true);
+    instance.onSettingsShown();
+    current = instance.pluginSettings.rules()[0];
+    assert.strictEqual(current.run_once(), true);
+    assert.strictEqual(current.interval(), 42);
+}
+
+testExecutionMode();
 testLateSettingsInitialization();
 testLegacyConversion();
 testSavedRulesAndAddLimit();
 testRemoveAndReorder();
 testSaveSerialization();
-console.log("repeating command viewmodel tests: SUCCESS (5 cases)");
+console.log("repeating command viewmodel tests: SUCCESS (6 cases)");

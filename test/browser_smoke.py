@@ -34,7 +34,7 @@ def set_rule(page: Page, index: int, command: str, interval: str, status: str, s
     text_inputs = rule.locator("input[type=text]")
     text_inputs.nth(0).fill(command)
     rule.locator("input[type=number]").fill(interval)
-    rule.locator("input[type=checkbox]").check()
+    rule.locator('input[data-bind="checked: filtering_enabled"]').check()
     text_inputs.nth(1).fill(status)
     text_inputs.nth(2).fill(states)
 
@@ -43,9 +43,10 @@ def read_rule(page: Page, index: int) -> dict[str, str | bool]:
     rule = rule_fields(page).nth(index)
     text_inputs = rule.locator("input[type=text]")
     return {
+        "run_once": rule.locator('input[data-bind="checked: run_once"]').is_checked(),
         "command": text_inputs.nth(0).input_value(),
         "interval": rule.locator("input[type=number]").input_value(),
-        "filtering_enabled": rule.locator("input[type=checkbox]").is_checked(),
+        "filtering_enabled": rule.locator('input[data-bind="checked: filtering_enabled"]').is_checked(),
         "status_contains": text_inputs.nth(1).input_value(),
         "printer_states": text_inputs.nth(2).input_value(),
     }
@@ -53,6 +54,7 @@ def read_rule(page: Page, index: int) -> dict[str, str | bool]:
 
 def expected_rule(command: str, interval: str, status: str, states: str) -> dict[str, str | bool]:
     return {
+        "run_once": False,
         "command": command,
         "interval": interval,
         "filtering_enabled": True,
@@ -83,6 +85,13 @@ def run_test(page: Page, base_url: str, new_page) -> None:
     set_rule(page, 1, "echo second", "22", "second", "PAUSED")
     set_rule(page, 2, "echo third", "33", "third", "FINISHING")
 
+    once = rule_fields(page).nth(2).locator('input[data-bind="checked: run_once"]')
+    once.check()
+    assert rule_fields(page).nth(2).locator("input[type=number]").is_disabled()
+    once.uncheck()
+    assert rule_fields(page).nth(2).locator("input[type=number]").input_value() == "33"
+    once.check()
+
     rule_fields(page).nth(2).get_by_role("button", name="Up").click()
     assert read_rule(page, 1)["command"] == "echo third"
     rule_fields(page).nth(0).get_by_role("button", name="Remove").click()
@@ -92,6 +101,7 @@ def run_test(page: Page, base_url: str, new_page) -> None:
         expected_rule("echo third", "33", "third", "FINISHING"),
         expected_rule("echo second", "22", "second", "PAUSED"),
     ]
+    expected[0]["run_once"] = True
     assert [read_rule(page, index) for index in range(2)] == expected
 
     page.get_by_role("button", name="Save").click()

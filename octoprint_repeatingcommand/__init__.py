@@ -3,6 +3,7 @@
 
 import datetime
 import getpass
+import json
 import os
 import re
 import shlex
@@ -25,6 +26,7 @@ class RepeatingCommandPlugin(
         self.print_active = False
         self.current_status = ""
         self.printer_state = ""
+        self.executed_once = set()
         self.timer_rule = None
 
     def run_command(self, cmd):
@@ -153,11 +155,29 @@ class RepeatingCommandPlugin(
     def _refresh_timer(self):
         if not self._settings.get(["enabled"]):
             self.stopTimer()
+            self.executed_once.clear()
             return
 
+        rules = self._rules()
+        # Keep activation history while matching, even if another rule wins.
+        self.executed_once.intersection_update(
+            json.dumps(candidate, sort_keys=True) for candidate in rules
+            if self._rule_matches(candidate)
+            and (self.print_active or candidate.get("filtering_enabled", False))
+        )
         rule = self._desired_rule()
         if rule is None:
             self.stopTimer()
+            return
+
+        if rule.get("run_once", False):
+            key = json.dumps(rule, sort_keys=True)
+            self.stopTimer()
+            if key not in self.executed_once:
+                self.executed_once.add(key)
+                rc, output = self.run_command(rule.get("command", ""))
+                if self._settings.get(["verbose"]):
+                    self._logger.info("result code is %s. output: '%s'" % (rc, output))
             return
 
         try:
@@ -201,6 +221,7 @@ class RepeatingCommandPlugin(
             self._refresh_timer()
         elif event == "PrintFailed":
             self.print_active = False
+            self.executed_once.clear()
             self.stopTimer()
         elif event == "PrinterStateChanged":
             self.printer_state = (payload or {}).get("state_id", "") or (payload or {}).get(
