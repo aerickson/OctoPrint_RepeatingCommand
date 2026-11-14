@@ -10,6 +10,7 @@ import shlex
 import socket
 import subprocess
 import time
+from threading import Lock, Thread
 
 import octoprint.plugin
 import octoprint.util
@@ -27,6 +28,7 @@ class RepeatingCommandPlugin(
         self.current_status = ""
         self.printer_state = ""
         self.executed_once = set()
+        self._activation_lock = Lock()
         self.timer_rule = None
         self.timer_token = None
 
@@ -87,6 +89,9 @@ class RepeatingCommandPlugin(
         # has not started yet must not execute after its timer is replaced.
         if token is not self.timer_token:
             return
+        self._run_rule_command(rule)
+
+    def _run_rule_command(self, rule):
         the_cmd = rule.get("command", "")
         rc, output = self.run_command(the_cmd)
         if self._settings.get(["verbose"]):
@@ -162,16 +167,18 @@ class RepeatingCommandPlugin(
     def _refresh_timer(self):
         if not self._settings.get(["enabled"]):
             self.stopTimer()
-            self.executed_once.clear()
+            with self._activation_lock:
+                self.executed_once.clear()
             return
 
         rules = self._rules()
         # Keep activation history while matching, even if another rule wins.
-        self.executed_once.intersection_update(
-            json.dumps(candidate, sort_keys=True) for candidate in rules
-            if self._rule_matches(candidate)
-            and (self.print_active or candidate.get("filtering_enabled", False))
-        )
+        with self._activation_lock:
+            self.executed_once.intersection_update(
+                json.dumps(candidate, sort_keys=True) for candidate in rules
+                if self._rule_matches(candidate)
+                and (self.print_active or candidate.get("filtering_enabled", False))
+            )
         rule = self._desired_rule()
         if rule is None:
             self.stopTimer()
@@ -180,11 +187,18 @@ class RepeatingCommandPlugin(
         if rule.get("run_once", False):
             key = json.dumps(rule, sort_keys=True)
             self.stopTimer()
-            if key not in self.executed_once:
+            with self._activation_lock:
+                if key in self.executed_once:
+                    return
                 self.executed_once.add(key)
-                rc, output = self.run_command(rule.get("command", ""))
-                if self._settings.get(["verbose"]):
-                    self._logger.info("result code is %s. output: '%s'" % (rc, output))
+            # M117 can activate this from the command-queuing hook. Never wait
+            # for an external script on OctoPrint's communication/event thread.
+            Thread(
+                target=self._run_rule_command,
+                args=(dict(rule),),
+                name="RepeatingCommand-once",
+                daemon=True,
+            ).start()
             return
 
         try:
@@ -233,7 +247,8 @@ class RepeatingCommandPlugin(
             self._refresh_timer()
         elif event in ("PrintFailed", "PrintCancelled"):
             self.print_active = False
-            self.executed_once.clear()
+            with self._activation_lock:
+                self.executed_once.clear()
             self.stopTimer()
         elif event == "PrinterStateChanged":
             self.printer_state = (payload or {}).get("state_id", "") or (payload or {}).get(

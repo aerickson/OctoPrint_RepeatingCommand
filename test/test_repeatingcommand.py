@@ -24,6 +24,15 @@ class FakeTimer:
         self.cancelled = True
 
 
+class ImmediateThread:
+    def __init__(self, target, args, **kwargs):
+        self.target = target
+        self.args = args
+
+    def start(self):
+        self.target(*self.args)
+
+
 class FakeSettings:
     def __init__(self, values):
         self.values = values
@@ -77,6 +86,7 @@ def reset_fakes():
 
 def make_plugin(rules=None, **overrides):
     module = load_plugin()
+    module.Thread = ImmediateThread
     values = {
         "enabled": True,
         "command": "normal-command",
@@ -416,3 +426,52 @@ def test_running_command_finishes_without_reusing_cancelled_timer():
     assert not worker.is_alive()
     plugin.timer.callback()
     assert plugin.commands == ["normal", "paused"]
+
+
+@pytest.mark.parametrize("trigger", ["status", "state"])
+def test_run_once_returns_from_hook_while_command_is_running(monkeypatch, trigger):
+    cooling = dict(rule("cool", filtering_enabled=True, status_contains="cooling", printer_states="PAUSED"), run_once=True)
+    plugin = once_plugin([cooling])
+    started = threading.Event()
+    finish = threading.Event()
+    returned = threading.Event()
+    workers = []
+
+    def worker(**kwargs):
+        thread = threading.Thread(**kwargs)
+        workers.append(thread)
+        return thread
+
+    monkeypatch.setattr(sys.modules["octoprint_repeatingcommand"], "Thread", worker)
+
+    def command(cmd):
+        plugin.commands.append(cmd)
+        started.set()
+        assert finish.wait(timeout=5)
+        return 0, b"ok"
+
+    plugin.run_command = command
+
+    def activate():
+        if trigger == "status":
+            plugin.on_gcode_queuing(None, None, "M117 Cooling", None, "M117", None, None)
+        else:
+            plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
+        returned.set()
+
+    caller = threading.Thread(target=activate)
+    caller.start()
+    try:
+        assert started.wait(timeout=2)
+        assert returned.wait(timeout=2), "OctoPrint hook waited for the external command"
+        activate()
+        assert plugin.commands == ["cool"]
+        assert len(workers) == 1
+        assert workers[0].is_alive()
+    finally:
+        finish.set()
+        caller.join(timeout=5)
+        for thread in workers:
+            thread.join(timeout=5)
+    assert not caller.is_alive()
+    assert all(not thread.is_alive() for thread in workers)
