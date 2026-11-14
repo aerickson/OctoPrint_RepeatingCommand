@@ -58,6 +58,12 @@ zero; zero does not mean run once.
 
 ## Testing
 
+GitHub Actions runs the unit tests and syntax checks on Python 3.9, 3.11, and
+3.13, plus the Firefox browser smoke test against a disposable OctoPrint instance
+on Ubuntu. Checks run for pull requests and pushes to `master`; the **Tests**
+workflow also supports manual runs from the Actions tab. Failed browser runs
+upload logs, a screenshot, and a Playwright trace as a seven-day artifact.
+
 Run the backend unit tests with:
 
     python -m pytest -q
