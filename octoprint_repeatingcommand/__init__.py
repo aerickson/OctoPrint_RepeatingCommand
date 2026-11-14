@@ -28,6 +28,7 @@ class RepeatingCommandPlugin(
         self.printer_state = ""
         self.executed_once = set()
         self.timer_rule = None
+        self.timer_token = None
 
     def run_command(self, cmd):
         parsed_cmd = shlex.split(cmd)
@@ -81,8 +82,12 @@ class RepeatingCommandPlugin(
     def get_assets(self):
         return dict(js=["js/repeatingcommand.js"])
 
-    def runTimerCommand(self):
-        the_cmd = self.timer_rule.get("command", "")
+    def runTimerCommand(self, rule, token):
+        # Cancellation cannot interrupt a running script, but a callback that
+        # has not started yet must not execute after its timer is replaced.
+        if token is not self.timer_token:
+            return
+        the_cmd = rule.get("command", "")
         rc, output = self.run_command(the_cmd)
         if self._settings.get(["verbose"]):
             self._logger.info("result code is %s. output: '%s'" % (rc, output))
@@ -148,7 +153,9 @@ class RepeatingCommandPlugin(
         return None
 
     def _desired_rule(self):
-        if self.print_active:
+        # FINISHING precedes PrintDone. Do not briefly activate the fallback
+        # when a PRINTING filter stops matching during that transition.
+        if self.print_active and self.printer_state.upper() not in ("FINISHING", "CANCELLING"):
             return self._matching_rule()
         return self._matching_rule(filtered_only=True)
 
@@ -193,17 +200,19 @@ class RepeatingCommandPlugin(
             return
 
         self.stopTimer()
-        self.timer_rule = rule
+        self.timer_rule = rule = dict(rule)
+        token = self.timer_token = object()
         the_cmd = rule.get("command", "")
         self._logger.info(
             "starting timer to run command '%s' every %s seconds" % (the_cmd, interval)
         )
         self.timer = octoprint.util.RepeatedTimer(
-            interval, self.runTimerCommand, run_first=True
+            interval, lambda: self.runTimerCommand(rule, token), run_first=True
         )
         self.timer.start()
 
     def stopTimer(self):
+        self.timer_token = None
         if self.timer:
             self._logger.info("stopping timer")
             self.timer.cancel()
@@ -215,11 +224,14 @@ class RepeatingCommandPlugin(
         # TODO: do something on paused (event == 'PrintPaused')? have an option?
         if event == "PrintStarted":
             self.print_active = True
+            # The matching PrinterStateChanged event can arrive later. Resolve
+            # state filters before run_first launches an irreversible command.
+            self.printer_state = "PRINTING"
             self._refresh_timer()
         elif event == "PrintDone":
             self.print_active = False
             self._refresh_timer()
-        elif event == "PrintFailed":
+        elif event in ("PrintFailed", "PrintCancelled"):
             self.print_active = False
             self.executed_once.clear()
             self.stopTimer()

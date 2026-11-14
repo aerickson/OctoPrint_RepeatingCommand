@@ -42,6 +42,11 @@ it apply only when its M117 status text or printer-state filters match. Filtered
 rules take precedence over all-situations rules, and rules are evaluated from top
 to bottom. This makes the first unfiltered rule a useful fallback.
 
+At print start, printer-state filters use `PRINTING` immediately. During
+`FINISHING` or `CANCELLING`, only matching filtered rules can run; the unfiltered
+fallback does not briefly restart before the print-end event. Cancelling a timer
+prevents future executions, but does not interrupt a script already running.
+
 Select **Run once when activated** to execute a rule once instead of repeating.
 The saved interval is preserved while this option is enabled. The highest-priority
 matching rule executes; duplicate status/state events do not run it again. It

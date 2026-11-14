@@ -1,5 +1,6 @@
 import importlib
 import sys
+import threading
 import types
 
 import pytest
@@ -267,10 +268,11 @@ def test_run_once_precedence_does_not_reset_matching_rule():
 def test_run_once_filtered_precedence_and_state_reactivation():
     selected = dict(rule("selected", filtering_enabled=True, printer_states="PAUSED"), run_once=True)
     plugin = once_plugin([rule("fallback"), selected])
-    plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
     plugin.on_event("PrintStarted", {})
+    normal_timer = FakeTimer.instances[-1]
+    plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
     assert plugin.commands == ["selected"]
-    assert FakeTimer.instances == []
+    assert normal_timer.cancelled
     plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
     timer = FakeTimer.instances[-1]
     plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
@@ -297,3 +299,120 @@ def test_reordering_rules_preserves_activation_history():
     plugin._settings.values["rules"] = [override, once]
     plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
     assert plugin.commands == ["once"]
+
+
+class ImmediateTimer(FakeTimer):
+    def start(self):
+        super().start()
+        if self.run_first:
+            self.callback()
+
+
+@pytest.mark.parametrize("run_once", [False, True])
+@pytest.mark.parametrize("state_first", [False, True])
+def test_print_transitions_never_launch_transient_fallback(monkeypatch, run_once, state_first):
+    fallback = dict(rule("pulse-fan", 60), run_once=run_once)
+    printing = rule("fan-on", 10, True, printer_states="PRINTING", status_contains="cooling")
+    plugin = once_plugin([fallback, printing])
+    monkeypatch.setattr(sys.modules["octoprint.util"], "RepeatedTimer", ImmediateTimer)
+    plugin.printer_state = "OPERATIONAL"
+
+    if state_first:
+        plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
+    plugin.on_event("PrintStarted", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "PRINTING"})
+    assert plugin.commands == ["fan-on"]
+
+    plugin.on_gcode_queuing(None, None, "M117 Print Complete.", None, "M117", None, None)
+    plugin.on_event("PrinterStateChanged", {"state_id": "FINISHING"})
+    assert plugin.timer is None
+    plugin.on_event("PrintDone", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "OPERATIONAL"})
+    # Even callbacks already queued by the old timer must do nothing.
+    for timer in FakeTimer.instances:
+        timer.callback()
+    assert plugin.commands == ["fan-on"]
+    assert all(timer.cancelled for timer in FakeTimer.instances)
+
+
+def test_fallback_still_executes_immediately_for_normal_print(monkeypatch):
+    plugin = once_plugin([rule("pulse-fan", 60)])
+    monkeypatch.setattr(sys.modules["octoprint.util"], "RepeatedTimer", ImmediateTimer)
+    plugin.on_event("PrintStarted", {})
+    assert plugin.commands == ["pulse-fan"]
+    plugin.on_event("PrinterStateChanged", {"state_id": "FINISHING"})
+    plugin.on_event("PrintDone", {})
+    assert plugin.commands == ["pulse-fan"]
+
+
+def test_cancellation_does_not_restart_fallback(monkeypatch):
+    plugin = once_plugin([rule("fallback"), rule("printing", 10, True, printer_states="PRINTING")])
+    monkeypatch.setattr(sys.modules["octoprint.util"], "RepeatedTimer", ImmediateTimer)
+    plugin.on_event("PrintStarted", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "CANCELLING"})
+    plugin.on_event("PrintCancelled", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "OPERATIONAL"})
+    assert plugin.commands == ["printing"]
+    assert plugin.timer is None
+
+
+@pytest.mark.parametrize("run_once", [False, True])
+def test_finishing_preserves_explicit_cooling_rule(monkeypatch, run_once):
+    cooling = dict(rule("cool", 10, True, status_contains="cooling"), run_once=run_once)
+    plugin = once_plugin([rule("fallback"), cooling])
+    monkeypatch.setattr(sys.modules["octoprint.util"], "RepeatedTimer", ImmediateTimer)
+    plugin.on_event("PrintStarted", {})
+    plugin.on_gcode_queuing(None, None, "M117 Cooling", None, "M117", None, None)
+    cooling_timer = plugin.timer
+    assert plugin.commands == ["fallback", "cool"]
+    plugin.on_event("PrinterStateChanged", {"state_id": "FINISHING"})
+    plugin.on_event("PrintDone", {})
+    plugin.on_event("PrinterStateChanged", {"state_id": "OPERATIONAL"})
+    assert plugin.commands == ["fallback", "cool"]
+    assert plugin.timer is cooling_timer
+    if cooling_timer:
+        assert not cooling_timer.cancelled
+
+
+def test_replaced_timer_cannot_execute_replacement_command():
+    plugin = once_plugin([rule("normal"), rule("paused", 5, True, printer_states="PAUSED")])
+    plugin.on_event("PrintStarted", {})
+    old_timer = plugin.timer
+    plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
+    old_timer.callback()
+    assert plugin.commands == []
+    plugin.timer.callback()
+    assert plugin.commands == ["paused"]
+    plugin.stopTimer()
+    old_timer.callback()
+    assert plugin.commands == ["paused"]
+
+
+def test_running_command_finishes_without_reusing_cancelled_timer():
+    plugin = once_plugin([rule("normal"), rule("paused", 5, True, printer_states="PAUSED")])
+    started = threading.Event()
+    finish = threading.Event()
+
+    def command(cmd):
+        plugin.commands.append(cmd)
+        started.set()
+        assert finish.wait(timeout=5)
+        return 0, b"ok"
+
+    plugin.run_command = command
+    plugin.on_event("PrintStarted", {})
+    old_timer = plugin.timer
+    worker = threading.Thread(target=old_timer.callback)
+    worker.start()
+    try:
+        assert started.wait(timeout=5)
+        plugin.on_event("PrinterStateChanged", {"state_id": "PAUSED"})
+        assert old_timer.cancelled
+        old_timer.callback()
+        assert plugin.commands == ["normal"]
+    finally:
+        finish.set()
+        worker.join(timeout=5)
+    assert not worker.is_alive()
+    plugin.timer.callback()
+    assert plugin.commands == ["normal", "paused"]
